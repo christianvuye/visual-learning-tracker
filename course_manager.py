@@ -568,7 +568,7 @@ class CourseDialog:
         # Create dialog window
         self.dialog = ttk_bs.Toplevel(parent)
         self.dialog.title("New Course")
-        self.dialog.geometry("500x400")
+        self.dialog.geometry("500x600")
         self.dialog.resizable(False, False)
         
         # Center dialog

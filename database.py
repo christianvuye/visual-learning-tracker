@@ -194,6 +194,65 @@ class DatabaseManager:
                 )
             ''')
             
+            # Exercises for LLM practice
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS exercises (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    category TEXT DEFAULT 'general',
+                    difficulty INTEGER DEFAULT 1,
+                    exercise_type TEXT DEFAULT 'coding',
+                    conversation_link TEXT,
+                    platform TEXT DEFAULT 'LLM',
+                    status TEXT DEFAULT 'in_progress',
+                    progress REAL DEFAULT 0.0,
+                    estimated_time INTEGER DEFAULT 60,
+                    actual_time INTEGER DEFAULT 0,
+                    concepts TEXT,
+                    course_id INTEGER,
+                    notes TEXT,
+                    tags TEXT DEFAULT '[]',
+                    completed_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE SET NULL
+                )
+            ''')
+            
+            # Concepts for connecting different learning entities
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS concepts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    category TEXT DEFAULT 'general',
+                    parent_concept_id INTEGER,
+                    color TEXT DEFAULT '#3498db',
+                    importance INTEGER DEFAULT 1,
+                    mastery_level REAL DEFAULT 0.0,
+                    tags TEXT DEFAULT '[]',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (parent_concept_id) REFERENCES concepts (id) ON DELETE SET NULL
+                )
+            ''')
+            
+            # Entity-Concept relationships for linking courses, exercises, notes, etc. to concepts
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS entity_concepts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id INTEGER NOT NULL,
+                    concept_id INTEGER NOT NULL,
+                    relationship_type TEXT DEFAULT 'related',
+                    strength REAL DEFAULT 1.0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (concept_id) REFERENCES concepts (id) ON DELETE CASCADE,
+                    UNIQUE(entity_type, entity_id, concept_id)
+                )
+            ''')
+            
             conn.commit()
     
     # Course management methods
@@ -450,6 +509,133 @@ class DatabaseManager:
             params.append(limit)
             
             cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+    
+    # Exercise management methods
+    def create_exercise(self, title: str, description: str = "", category: str = "general",
+                       difficulty: int = 1, exercise_type: str = "coding", 
+                       conversation_link: str = "", platform: str = "LLM",
+                       estimated_time: int = 60, course_id: int = None,
+                       concepts: List[str] = None, tags: List[str] = None) -> int:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            concepts_json = json.dumps(concepts) if concepts else "[]"
+            tags_json = json.dumps(tags) if tags else "[]"
+            
+            cursor.execute('''
+                INSERT INTO exercises (title, description, category, difficulty, exercise_type,
+                                     conversation_link, platform, estimated_time, course_id,
+                                     concepts, tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (title, description, category, difficulty, exercise_type,
+                  conversation_link, platform, estimated_time, course_id,
+                  concepts_json, tags_json))
+            return cursor.lastrowid
+    
+    def get_exercises(self, status: str = None, course_id: int = None) -> List[Dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = 'SELECT * FROM exercises WHERE 1=1'
+            params = []
+            
+            if status:
+                query += ' AND status = ?'
+                params.append(status)
+            
+            if course_id:
+                query += ' AND course_id = ?'
+                params.append(course_id)
+            
+            query += ' ORDER BY created_at DESC'
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def update_exercise_progress(self, exercise_id: int, progress: float, 
+                               actual_time: int = None, status: str = None) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            updates = ['progress = ?', 'updated_at = CURRENT_TIMESTAMP']
+            params = [progress]
+            
+            if actual_time is not None:
+                updates.append('actual_time = ?')
+                params.append(actual_time)
+            
+            if status:
+                updates.append('status = ?')
+                params.append(status)
+                if status == 'completed':
+                    updates.append('completed_at = CURRENT_TIMESTAMP')
+            
+            params.append(exercise_id)
+            
+            cursor.execute(f'''
+                UPDATE exercises 
+                SET {', '.join(updates)}
+                WHERE id = ?
+            ''', params)
+            return cursor.rowcount > 0
+    
+    # Concept management methods
+    def create_concept(self, name: str, description: str = "", category: str = "general",
+                      parent_concept_id: int = None, color: str = "#3498db",
+                      importance: int = 1, tags: List[str] = None) -> int:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            tags_json = json.dumps(tags) if tags else "[]"
+            
+            cursor.execute('''
+                INSERT INTO concepts (name, description, category, parent_concept_id,
+                                    color, importance, tags)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (name, description, category, parent_concept_id, color, importance, tags_json))
+            return cursor.lastrowid
+    
+    def get_concepts(self, category: str = None) -> List[Dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            query = 'SELECT * FROM concepts WHERE 1=1'
+            params = []
+            
+            if category:
+                query += ' AND category = ?'
+                params.append(category)
+            
+            query += ' ORDER BY importance DESC, name ASC'
+            cursor.execute(query, params)
+            return [dict(row) for row in cursor.fetchall()]
+    
+    def link_entity_to_concept(self, entity_type: str, entity_id: int, concept_id: int,
+                              relationship_type: str = "related", strength: float = 1.0) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO entity_concepts 
+                    (entity_type, entity_id, concept_id, relationship_type, strength)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (entity_type, entity_id, concept_id, relationship_type, strength))
+                return True
+            except sqlite3.IntegrityError:
+                return False
+    
+    def get_entity_concepts(self, entity_type: str, entity_id: int) -> List[Dict]:
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT c.*, ec.relationship_type, ec.strength
+                FROM concepts c
+                JOIN entity_concepts ec ON c.id = ec.concept_id
+                WHERE ec.entity_type = ? AND ec.entity_id = ?
+                ORDER BY ec.strength DESC, c.name ASC
+            ''', (entity_type, entity_id))
             return [dict(row) for row in cursor.fetchall()]
     
     def close(self):

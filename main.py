@@ -89,6 +89,7 @@ class VisualLearningTracker:
             ("📝 Notes", self.show_notes),
             ("🧠 Mind Maps", self.show_mind_maps),
             ("🔗 Knowledge Graph", self.show_knowledge_graph),
+            ("🏋️ Exercises", self.show_exercises),
             ("🃏 Flashcards", self.show_flashcards),
             ("📊 Analytics", self.show_analytics),
             ("⚙️ Settings", self.show_settings)
@@ -352,12 +353,19 @@ class VisualLearningTracker:
         graph_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(graph_frame, text="Knowledge Graph")
         
-        placeholder = ttk_bs.Label(
-            graph_frame,
-            text="Knowledge graph visualization coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the knowledge graph widget
+        from knowledge_graph import KnowledgeGraphWidget
+        self.knowledge_graph_widget = KnowledgeGraphWidget(graph_frame, self.db)
+        
+    def show_exercises(self):
+        self.clear_notebook()
+        
+        exercises_frame = ttk_bs.Frame(self.notebook)
+        self.notebook.add(exercises_frame, text="Exercises")
+        
+        # Import and create the exercises widget
+        from exercises_widget import ExercisesWidget
+        self.exercises_widget = ExercisesWidget(exercises_frame, self.db)
         
     def show_flashcards(self):
         self.clear_notebook()
@@ -385,12 +393,9 @@ class VisualLearningTracker:
         settings_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(settings_frame, text="Settings")
         
-        placeholder = ttk_bs.Label(
-            settings_frame,
-            text="Settings and preferences coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the settings widget
+        from settings_widget import SettingsWidget
+        self.settings_widget = SettingsWidget(settings_frame, self.db)
         
     def clear_notebook(self):
         for tab in self.notebook.tabs():
@@ -402,7 +407,9 @@ class VisualLearningTracker:
             self.refresh_dashboard()
             
     def quick_note_dialog(self):
-        messagebox.showinfo("Quick Note", "Quick note feature coming soon!")
+        dialog = QuickNoteDialog(self.root, self.db)
+        if dialog.result:
+            self.refresh_dashboard()
         
     def start_study_session(self, course):
         if self.current_session_id:
@@ -440,7 +447,7 @@ class CourseDialog:
         # Create dialog window
         self.dialog = ttk_bs.Toplevel(parent)
         self.dialog.title("New Course")
-        self.dialog.geometry("500x400")
+        self.dialog.geometry("500x600")
         self.dialog.resizable(False, False)
         
         # Center dialog
@@ -466,8 +473,8 @@ class CourseDialog:
         
         self.desc_var = tk.StringVar()
         ttk_bs.Label(main_frame, text="Description:").pack(anchor=W)
-        desc_text = tk.Text(main_frame, height=4, width=50)
-        desc_text.pack(fill=X, pady=(0, 10))
+        self.desc_text = tk.Text(main_frame, height=4, width=50)
+        self.desc_text.pack(fill=X, pady=(0, 10))
         
         self.category_var = tk.StringVar()
         ttk_bs.Label(main_frame, text="Category:").pack(anchor=W)
@@ -511,8 +518,6 @@ class CourseDialog:
             style='Success.TButton'
         ).pack(side=RIGHT)
         
-        self.desc_text = desc_text
-        
     def create_course(self):
         title = self.title_var.get().strip()
         if not title:
@@ -533,6 +538,106 @@ class CourseDialog:
         )
         
         self.result = course_id
+        self.dialog.destroy()
+        
+    def cancel(self):
+        self.dialog.destroy()
+
+
+class QuickNoteDialog:
+    def __init__(self, parent, db):
+        self.db = db
+        self.result = None
+        
+        # Create dialog window
+        self.dialog = ttk_bs.Toplevel(parent)
+        self.dialog.title("Quick Note")
+        self.dialog.geometry("500x400")
+        self.dialog.resizable(False, False)
+        
+        # Center dialog
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        self.create_form()
+        
+        # Wait for dialog to close
+        parent.wait_window(self.dialog)
+        
+    def create_form(self):
+        main_frame = ttk_bs.Frame(self.dialog, padding=20)
+        main_frame.pack(fill=BOTH, expand=True)
+        
+        # Title
+        ttk_bs.Label(main_frame, text="Create Quick Note", style='Header.TLabel').pack(pady=(0, 20))
+        
+        # Form fields
+        self.title_var = tk.StringVar()
+        ttk_bs.Label(main_frame, text="Note Title:").pack(anchor=W)
+        ttk_bs.Entry(main_frame, textvariable=self.title_var, width=50).pack(fill=X, pady=(0, 10))
+        
+        # Course selection
+        ttk_bs.Label(main_frame, text="Course (optional):").pack(anchor=W)
+        self.course_var = tk.StringVar()
+        course_combo = ttk_bs.Combobox(main_frame, textvariable=self.course_var, state="readonly")
+        courses = self.db.get_courses()
+        course_combo['values'] = [""] + [course['title'] for course in courses]
+        course_combo.pack(fill=X, pady=(0, 10))
+        
+        # Note content
+        ttk_bs.Label(main_frame, text="Note Content:").pack(anchor=W)
+        self.content_text = tk.Text(main_frame, height=8, width=50)
+        self.content_text.pack(fill=BOTH, expand=True, pady=(0, 20))
+        
+        # Buttons
+        btn_frame = ttk_bs.Frame(main_frame)
+        btn_frame.pack(fill=X)
+        
+        ttk_bs.Button(
+            btn_frame,
+            text="Cancel",
+            command=self.cancel,
+            style='Secondary.TButton'
+        ).pack(side=RIGHT, padx=(10, 0))
+        
+        ttk_bs.Button(
+            btn_frame,
+            text="Save Note",
+            command=self.save_note,
+            style='Success.TButton'
+        ).pack(side=RIGHT)
+        
+    def save_note(self):
+        title = self.title_var.get().strip()
+        if not title:
+            messagebox.showerror("Error", "Please enter a note title.")
+            return
+            
+        content = self.content_text.get("1.0", tk.END).strip()
+        if not content:
+            messagebox.showerror("Error", "Please enter note content.")
+            return
+        
+        # Get course ID
+        course_id = None
+        course_name = self.course_var.get()
+        if course_name:
+            courses = self.db.get_courses()
+            course = next((c for c in courses if c['title'] == course_name), None)
+            if course:
+                course_id = course['id']
+        
+        # Create note
+        note_id = self.db.create_note(
+            course_id=course_id,
+            title=title,
+            content=content,
+            note_type="quick",
+            tags=["quick-note"]
+        )
+        
+        self.result = note_id
+        messagebox.showinfo("Success", "Quick note saved successfully!")
         self.dialog.destroy()
         
     def cancel(self):

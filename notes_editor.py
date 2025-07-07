@@ -61,10 +61,12 @@ class NotesEditor:
         self.search_var = tk.StringVar()
         self.search_var.trace('w', self.on_search_changed)
         
+        # Add a label for search hint
+        ttk_bs.Label(search_frame, text="Search notes:", font=('Helvetica', 9)).pack(anchor=W)
+        
         search_entry = ttk_bs.Entry(
             search_frame,
-            textvariable=self.search_var,
-            placeholder_text="Search notes..."
+            textvariable=self.search_var
         )
         search_entry.pack(fill=X)
         
@@ -296,12 +298,18 @@ class NotesEditor:
         
         ttk_bs.Label(tags_frame, text="Tags:", width=10).pack(side=LEFT)
         self.tags_var = tk.StringVar()
+        
+        # Tags container with hint
+        tags_container = ttk_bs.Frame(tags_frame)
+        tags_container.pack(side=LEFT, fill=X, expand=True)
+        
+        ttk_bs.Label(tags_container, text="(comma separated)", font=('Helvetica', 8), foreground="gray").pack(anchor=W)
+        
         tags_entry = ttk_bs.Entry(
-            tags_frame,
-            textvariable=self.tags_var,
-            placeholder_text="Enter tags separated by commas"
+            tags_container,
+            textvariable=self.tags_var
         )
-        tags_entry.pack(side=LEFT, fill=X, expand=True)
+        tags_entry.pack(fill=X)
         
         # Quick actions
         quick_frame = ttk_bs.Frame(actions_frame)
