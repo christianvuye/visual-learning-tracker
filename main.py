@@ -322,13 +322,9 @@ class VisualLearningTracker:
         courses_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(courses_frame, text="Courses")
         
-        # TODO: Implement full courses management
-        placeholder = ttk_bs.Label(
-            courses_frame,
-            text="Full course management interface coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the course manager
+        from course_manager import CourseManagerWidget
+        self.course_manager = CourseManagerWidget(courses_frame, self.db)
         
     def show_notes(self):
         self.clear_notebook()
@@ -336,12 +332,9 @@ class VisualLearningTracker:
         notes_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(notes_frame, text="Notes")
         
-        placeholder = ttk_bs.Label(
-            notes_frame,
-            text="Notes interface with rich text editor coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the notes editor
+        from notes_editor import NotesWidget
+        self.notes_widget = NotesWidget(notes_frame, self.db)
         
     def show_mind_maps(self):
         self.clear_notebook()
@@ -349,12 +342,9 @@ class VisualLearningTracker:
         mindmap_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(mindmap_frame, text="Mind Maps")
         
-        placeholder = ttk_bs.Label(
-            mindmap_frame,
-            text="Interactive mind mapping canvas coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the mind map widget
+        from mind_map import MindMapWidget
+        self.mindmap_widget = MindMapWidget(mindmap_frame)
         
     def show_knowledge_graph(self):
         self.clear_notebook()
@@ -375,12 +365,9 @@ class VisualLearningTracker:
         flashcards_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(flashcards_frame, text="Flashcards")
         
-        placeholder = ttk_bs.Label(
-            flashcards_frame,
-            text="Flashcard review system coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the flashcard widget
+        from flashcard_widget import FlashcardWidget
+        self.flashcard_widget = FlashcardWidget(flashcards_frame, self.db)
         
     def show_analytics(self):
         self.clear_notebook()
@@ -388,12 +375,9 @@ class VisualLearningTracker:
         analytics_frame = ttk_bs.Frame(self.notebook)
         self.notebook.add(analytics_frame, text="Analytics")
         
-        placeholder = ttk_bs.Label(
-            analytics_frame,
-            text="Learning analytics and charts coming soon...",
-            style='Header.TLabel'
-        )
-        placeholder.pack(expand=True)
+        # Import and create the analytics widget
+        from analytics_widget import AnalyticsWidget
+        self.analytics_widget = AnalyticsWidget(analytics_frame, self.db)
         
     def show_settings(self):
         self.clear_notebook()
